@@ -1,44 +1,14 @@
 import {useLayoutEffect,useState} from 'react'
 import rough from 'roughjs/bundled/rough.esm'
-const generator= rough.generator();
-const createElement=(index,x1,y1,x2,y2,tool)=>
-{
-    console.log(tool)
-    const roughElement=tool=='line'?generator.line(x1,y1,x2,y2):tool=='rectangle'?generator.rectangle(x1,y1,x2-x1,y2-y1):null
-    return {index,x1,y1,x2,y2,tool,roughElement}
-}
+import { createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
 
-const distance=(a,b)=>Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2))
-const isWithinElement=(x,y,element)=>
-{
-    const {tool,x1,x2,y1,y2}=element;
-    if(tool==='rectangle')
-    {
-        const minX=Math.min(x1,x2);
-        const maxX=Math.max(x1,x2);
-        const minY=Math.min(y1,y2);
-        const maxY=Math.max(y1,y2);
-        return x>=minX && x<=maxX && y>=minY && y<=maxY;
-    }else{
-        const a={x:x1,y:y1}
-        const b={x:x2,y:y2}
-        const c={x,y}
-
-        const offset= distance(a,b) - (distance(a,c)+distance(b,c))
-
-        return Math.abs(offset) < 1;
-    }
-}
-const getElementAtPosition=(x,y,elements)=>
-{
-    return elements.find(element=>isWithinElement(x,y,element))
-}
 const Editor=()=>
 {
     const [tool,setTool]=useState('selection')
     const [elements,setElements]=useState([])
     const [action,setAction]=useState('none')
     const [selectedElement,setSelectedElement]=useState(null);
+
     const updateElement=(index,x1,y1,x2,y2,tool)=>
     {
         const updatedElement=createElement(index,x1,y1,x2,y2,tool)
@@ -46,19 +16,27 @@ const Editor=()=>
         elementsCopy[index]=updatedElement;
         setElements(elementsCopy)
     }
+
     const onmousedown=(e)=>
     {
         const {clientX,clientY}=e;
         if(tool==='selection')
         {
             const element=getElementAtPosition(clientX,clientY,elements)
-            console.log(element)
             if(element)
             {
                 const offsetX=clientX-element.x1;
                 const offsetY=clientY-element.y1;
-                setAction('moving')
                 setSelectedElement({...element,offsetX,offsetY})
+                if(element.position==="inside")
+                {
+                    setAction('moving')
+                }
+                else
+                {
+                    console.log('resize')
+                    setAction("resizing")
+                }
             }
         }
         else{
@@ -71,6 +49,11 @@ const Editor=()=>
     const onmousemove=(e)=>
     {
         const {clientX,clientY}=e;
+        if(tool === 'selection')
+        {
+            const element = getElementAtPosition(clientX,clientY,elements)
+            e.target.style.cursor = element ? cursorForPosition(element.position): "default"
+        }
         if(action==='drawing')
         { 
             const index=elements.length-1;
@@ -86,9 +69,21 @@ const Editor=()=>
             const newY=clientY-offsetY
             updateElement(index,newX,newY,newX+width,newY+height,tool);
         }
+        if(action==='resizing')
+        {
+            const {index,tool, position, ...coordinates} = selectedElement;
+            const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,position,coordinates);
+            updateElement(index, x1,y1,x2,y2, tool);
+        }
     }
     const onmouseup=(e)=>
     {
+        const index = elements.length-1
+        if(action === 'drawing'){
+            const {x1,y1,x2,y2}=adjustElementCoordinates(elements[index]);
+            console.log(x1,y1,x2,y2)
+            updateElement(index, x1,y1,x2,y2,tool)
+        }
         setAction('selection');
         setSelectedElement(null)
     }
@@ -101,9 +96,6 @@ const Editor=()=>
         const roughCanvas=rough.canvas(canvas)
         elements.forEach(({roughElement})=>roughCanvas.draw(roughElement));
       },[elements])
-
-
-
 
     return(
         <div>
