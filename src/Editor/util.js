@@ -1,5 +1,11 @@
 import rough from 'roughjs/bundled/rough.esm'
 const generator= rough.generator();
+export const createSelectedBox=(index,x1,y1,x2,y2,tool)=>
+{
+    const roughElement=generator.rectangle(x1,y1,x2-x1,y2-y1,{
+      })
+    return {index,x1,y1,x2,y2,tool,roughElement}
+}
 export const createElement=(index,x1,y1,x2,y2,tool)=>
 {
     const roughElement=tool=='line'?generator.line(x1,y1,x2,y2):tool=='rectangle'?generator.rectangle(x1,y1,x2-x1,y2-y1,{
@@ -56,6 +62,7 @@ export const adjustElementCoordinates=(element)=>
         const maxX=Math.max(x1,x2);
         const minY=Math.min(y1,y2);
         const maxY=Math.max(y1,y2);
+        
         return {x1:minX,y1:minY,x2:maxX,y2:maxY}
     } else{
         if(x1<x2 || (x1===x2 && y1<y2)){

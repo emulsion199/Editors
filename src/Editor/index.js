@@ -1,11 +1,11 @@
-import {useLayoutEffect,useState} from 'react'
+import {useEffect, useLayoutEffect,useState} from 'react'
 import rough from 'roughjs/bundled/rough.esm'
-import { createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
+import { createSelectedBox,createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
 
 const Editor=()=>
 {
     const [tool,setTool]=useState('selection')
-    const [elements,setElements]=useState([])
+    const [elements,setElements]=useState([]) //for selectedBox
     const [action,setAction]=useState('none')
     const [selectedElement,setSelectedElement]=useState(null);
 
@@ -20,14 +20,17 @@ const Editor=()=>
     const onmousedown=(e)=>
     {
         const {clientX,clientY}=e;
+        const id = elements.length;
         if(tool==='selection')
         {
             const element=getElementAtPosition(clientX,clientY,elements)
+  
             if(element)
             {
                 const offsetX=clientX-element.x1;
                 const offsetY=clientY-element.y1;
                 setSelectedElement({...element,offsetX,offsetY})
+                
                 if(element.position==="inside")
                 {
                     setAction('moving')
@@ -40,19 +43,22 @@ const Editor=()=>
             }
         }
         else{
-            const id = elements.length;
+            
             setAction('drawing');
             const element=createElement(id,clientX,clientY,clientX,clientY,tool)
             setElements(prevState=>[...prevState, element])
+            
         }
     }
     const onmousemove=(e)=>
     {
+        const id = elements.length;
         const {clientX,clientY}=e;
         if(tool === 'selection')
         {
             const element = getElementAtPosition(clientX,clientY,elements)
             e.target.style.cursor = element ? cursorForPosition(element.position): "default"
+            
         }
         if(action==='drawing')
         { 
@@ -74,22 +80,35 @@ const Editor=()=>
             const {index,tool, position, ...coordinates} = selectedElement;
             const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,position,coordinates);
             updateElement(index, x1,y1,x2,y2, tool);
+            console.log(elements[index])
+
         }
     }
     const onmouseup=(e)=>
     {
-        const index = elements.length-1
+        
         if(action === 'drawing'){
+            const index = elements.length-1
             const {x1,y1,x2,y2}=adjustElementCoordinates(elements[index]);
-            console.log(x1,y1,x2,y2)
             updateElement(index, x1,y1,x2,y2,tool)
+           
         }
+        if( action ==='resizing')
+        {
+            const index = selectedElement.index           
+            const {x1,y1,x2,y2} = adjustElementCoordinates(elements[index]);
+            updateElement(index, x1,y1,x2,y2,selectedElement.tool)
+        }
+
+    
         setAction('selection');
-        setSelectedElement(null)
+        setSelectedElement(null);
+     
     }
 
     //캔버스 생성//
     useLayoutEffect(()=>{
+        console.log(elements)
         const canvas=document.getElementById('canvas');
         const context=canvas.getContext('2d');
         context.clearRect(0,0,canvas.width,canvas.height);
@@ -103,6 +122,7 @@ const Editor=()=>
             id="canvas"
             width={window.innerWidth}
             height={window.innerHeight-30}
+
             onMouseDown={onmousedown}
             onMouseMove={onmousemove}
             onMouseUp={onmouseup}>
