@@ -1,5 +1,25 @@
 import rough from 'roughjs/bundled/rough.esm'
+import getStroke from 'perfect-freehand'
 const generator= rough.generator();
+//pencil
+function getSvgPathFromStroke(stroke) {
+    if (!stroke.length) return ''
+    const d = stroke.reduce(
+      (acc, [x0, y0], i, arr) => {
+        const [x1, y1] = arr[(i + 1) % arr.length]
+        acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2)
+        return acc
+      },
+      ['M', ...stroke[0], 'Q']
+    )
+    d.push('Z')
+    return d.join(' ')
+  }
+
+
+
+
+
 export const createSelectedBox=(index,x1,y1,x2,y2,tool)=>
 {
     const roughElement=generator.rectangle(x1,y1,x2-x1,y2-y1,{
@@ -8,14 +28,43 @@ export const createSelectedBox=(index,x1,y1,x2,y2,tool)=>
 }
 export const createElement=(index,x1,y1,x2,y2,tool)=>
 {
-    const roughElement=tool=='line'?generator.line(x1,y1,x2,y2):tool=='rectangle'?generator.rectangle(x1,y1,x2-x1,y2-y1,{
-        fill: "rgba(10,150,10,0.5)",
-        fillStyle:'solid',
-        fillWeight: 1 // thicker lines for hachure
-      }):null
-    return {index,x1,y1,x2,y2,tool,roughElement}
-}
+    switch (tool)
+    {
+        case "line":
+        case 'rectangle':
+        const roughElement= tool=='line'
+        ?generator.line(x1,y1,x2,y2)
+        :generator.rectangle(x1,y1,x2-x1,y2-y1,{
+            fill: "rgba(10,150,10,0.5)",
+            fillStyle:'solid',
+            fillWeight: 1 // thicker lines for hachure
+          })
+        return {index,x1,y1,x2,y2,tool,roughElement}
+        case 'pencil':
+            return {index, points: [{x:x1,y:y1}],tool}
+        default:
+            throw new Error(`Type not recognized: ${tool}`)
 
+    }
+}
+export const drawElement=(roughCanvas, context, element)=>
+{
+    switch (element.tool)
+    {
+        
+        case "line":
+        case 'rectangle':
+            roughCanvas.draw(element.roughElement)
+            break;
+        case 'pencil':
+            const stroke = getSvgPathFromStroke(getStroke(element.points,{size:5}))
+            context.fill(new Path2D(stroke))
+            break;
+        default:
+            throw new Error(`Type not recognized: ${element.tool}`)
+
+    }
+}
 export const distance=(a,b)=>Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2))
 const nearPoint = (x,y,x1,y1,name)=>
 {
