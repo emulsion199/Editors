@@ -1,40 +1,54 @@
-import {useLayoutEffect,useState} from 'react'
+import {useEffect, useLayoutEffect,useState} from 'react'
 import rough from 'roughjs/bundled/rough.esm'
 import { drawElement,createSelectedBox,createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
-
+import yorkie from 'yorkie-js-sdk'
+var client=null;
+var doc= null;
+var canvas= null;
+var context=null;
+var roughCanvas=null;
 const Editor=()=>
 {
     const [tool,setTool]=useState('pencil')
-    const [elements,setElements]=useState([]) //for selectedBox
     const [action,setAction]=useState('none')
     const [selectedElement,setSelectedElement]=useState(null);
 
     const updateElement=(index,x1,y1,x2,y2,tool)=>
     {
-        const elementsCopy=[...elements];
         switch (tool)
         {
             case "line":
-            case "rectangle":
-                elementsCopy[index]=createElement(index,x1,y1,x2,y2,tool)
+            case "rectangle":  
+                doc.update((root)=>{
+                const element=createElement(index,x1,y1,x2,y2,tool)
+                root.shapes[index].index=element.index
+                root.shapes[index].x1=element.x1
+                root.shapes[index].y1=element.y1
+                root.shapes[index].x2=element.x2
+                root.shapes[index].y2=element.y2
+                root.shapes[index].roughElement=element.roughElement
+                
+                }
+                )
                 break;
             case "pencil":
-                elementsCopy[index].points = [...elementsCopy[index].points,{x: x2,y: y2}]
+                doc.update((root)=>
+                root.shapes[index].points.push({x: x2,y: y2}))
                 break;
             default:
                 throw new Error(`Type not recognized ${tool}`)
         }
-        setElements(elementsCopy)
+        
         
     }
 
     const onmousedown=(e)=>
     {
         const {clientX,clientY}=e;
-        const id = elements.length;
+        const id = doc.getRoot().length;
         if(tool==='selection')
         {
-            const element=getElementAtPosition(clientX,clientY,elements)
+            const element=getElementAtPosition(clientX,clientY,doc.getRoot())
   
             if(element)
             {
@@ -53,61 +67,71 @@ const Editor=()=>
             }
         }
         else{
-            
             setAction('drawing');
-            const element=createElement(id,clientX,clientY,clientX,clientY,tool)
-            setElements(prevState=>[...prevState, element])
-            
+            const element=createElement(id,clientX,clientY,clientX+10,clientY+10,tool)
+            doc.update((root)=>{
+                root.shapes.push(element);
+             
+            }
+            )
+           
+            drawAll()
         }
     }
     const onmousemove=(e)=>
     {
-        const id = elements.length;
+        
         const {clientX,clientY}=e;
         if(tool === 'selection')
         {
+            const elements=doc.getRoot().shapes;
             const element = getElementAtPosition(clientX,clientY,elements)
             e.target.style.cursor = element ? cursorForPosition(element.position): "default"
             
         }
         if(action==='drawing')
         { 
+            const elements=doc.getRoot().shapes;
             const index=elements.length-1;
             const {x1,y1}=elements[index];
             updateElement(index,x1,y1,clientX,clientY,tool)
+            drawAll()
+            
         }
         if(action==='moving')
         {
+            const elements=doc.getRoot().shapes;
             const {index,x1,x2,y1,y2,tool,offsetX,offsetY} = selectedElement
             const width=x2-x1;
             const height=y2-y1;
             const newX=clientX-offsetX
             const newY=clientY-offsetY
             updateElement(index,newX,newY,newX+width,newY+height,tool);
+            
         }
         if(action==='resizing')
         {
+            const elements=doc.getRoot().shapes;
             const {index,tool, position, ...coordinates} = selectedElement;
             const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,position,coordinates);
             updateElement(index, x1,y1,x2,y2, tool);
-
-
         }
+       
+        
     }
     const onmouseup=(e)=>
     {
         
         if(action === 'drawing' && (tool==='rectangle' || tool === 'line')){
-            const index = elements.length-1
-
-            const {x1,y1,x2,y2}=adjustElementCoordinates(elements[index]);
+            const index = doc.getRoot().shapes.length-1
+            const {x1,y1,x2,y2}=adjustElementCoordinates(doc.getRoot().shapes[index]);
 
             updateElement(index, x1,y1,x2,y2,tool)
         }
         if( action ==='resizing')
         {
             const index = selectedElement.index           
-            const {x1,y1,x2,y2} = adjustElementCoordinates(elements[index]);
+            const {x1,y1,x2,y2} = adjustElementCoordinates(doc.getRoot()[index]);
             updateElement(index, x1,y1,x2,y2,selectedElement.tool)
         }    
         setAction('selection');
@@ -115,14 +139,49 @@ const Editor=()=>
     }
 
     //캔버스 생성//
-    useLayoutEffect(()=>{
-        const canvas=document.getElementById('canvas');
-        const context=canvas.getContext('2d');
+    function drawAll()
+    {
+        const root = doc.getRoot();
         context.clearRect(0,0,canvas.width,canvas.height);
-        const roughCanvas=rough.canvas(canvas)
-        elements.forEach(element => drawElement(roughCanvas, context, element));
-      },[elements])
+        root.shapes.forEach(element => drawElement(roughCanvas, context, element));
+    }
+    useLayoutEffect(()=>{
+        canvas=document.getElementById('canvas');
+        context=canvas.getContext('2d');
+        roughCanvas=rough.canvas(canvas)        
+    },[])
+    //Yorkie//
 
+    async function activateClient()
+    {
+            client = new yorkie.Client(`https://api.fillkie.com`)
+            await client.activate();   
+            doc = new yorkie.Document('doc12s342aaaas2');   
+            await client.attach(doc);
+            subscribeDoc();   
+            doc.update((root) => {
+                root.shapes=[]
+                });
+            
+    }
+    function subscribeDoc()
+    {
+        if(doc ===null) return;
+        doc.subscribe((event) => {
+            if (event.type === 'remote-change') {
+                drawAll()
+            }
+            });
+        
+    }
+    useLayoutEffect(()=> {
+        if(client===null)
+        {
+            activateClient();
+            
+        }
+    }
+    ,[])
     return(
         <div>
             <canvas

@@ -15,11 +15,6 @@ function getSvgPathFromStroke(stroke) {
     d.push('Z')
     return d.join(' ')
   }
-
-
-
-
-
 export const createSelectedBox=(index,x1,y1,x2,y2,tool)=>
 {
     const roughElement=generator.rectangle(x1,y1,x2-x1,y2-y1,{
@@ -54,6 +49,7 @@ export const drawElement=(roughCanvas, context, element)=>
         
         case "line":
         case 'rectangle':
+            
             roughCanvas.draw(element.roughElement)
             break;
         case 'pencil':
@@ -105,7 +101,9 @@ export const getElementAtPosition=(x,y,elements)=>
 }
 export const adjustElementCoordinates=(element)=>
 {
+    console.log(element)
     const {tool,x1,y1,x2,y2} = element;
+    
     if(tool === 'rectangle') {
         const minX=Math.min(x1,x2);
         const maxX=Math.max(x1,x2);
