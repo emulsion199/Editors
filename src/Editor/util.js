@@ -27,14 +27,7 @@ export const createElement=(index,x1,y1,x2,y2,tool)=>
     {
         case "line":
         case 'rectangle':
-        const roughElement= tool=='line'
-        ?generator.line(x1,y1,x2,y2)
-        :generator.rectangle(x1,y1,x2-x1,y2-y1,{
-            fill: "rgba(10,150,10,0.5)",
-            fillStyle:'solid',
-            fillWeight: 1 // thicker lines for hachure
-          })
-        return {index,x1,y1,x2,y2,tool,roughElement}
+        return {index,x1,y1,x2,y2,tool}
         case 'pencil':
             return {index, points: [{x:x1,y:y1}],tool}
         default:
@@ -44,16 +37,29 @@ export const createElement=(index,x1,y1,x2,y2,tool)=>
 }
 export const drawElement=(roughCanvas, context, element)=>
 {
+    const {x1,y1,x2,y2}=element;
     switch (element.tool)
     {
         
         case "line":
-        case 'rectangle':
+            context.beginPath();
+            context.moveTo(x1,y1)
+            context.lineTo(x2,y2)
+            context.lineWidth = 2
+            context.strokeStyle = "black"
+            context.stroke();
             
-            roughCanvas.draw(element.roughElement)
+
+  
+            break;
+        case 'rectangle':
+            context.strokeStyle="black";
+            context.strokeRect(x1,y1,x2-x1,y2-y1);
+            context.fillStyle="rgba(12,34,56,1)"
+            context.fillRect(x1,y1,x2-x1,y2-y1);
             break;
         case 'pencil':
-            const stroke = getSvgPathFromStroke(getStroke(element.points,{size:5}))
+            const stroke = getSvgPathFromStroke(getStroke(element.points,{size:8}))
             context.fill(new Path2D(stroke))
             break;
         default:
@@ -92,16 +98,15 @@ export const getElementAtPosition=(x,y,elements)=>
 {
     for(var i=elements.length-1; i>=0;i--)
     {
-        elements[i].position=positionWithinElement(x,y,elements[i])
-        if(elements[i].position!==null){
-            return elements[i]
+        const position=positionWithinElement(x,y,elements[i])
+        if(position!==null){
+            return {element:elements[i],position:position}
         }
     }
     return undefined
 }
 export const adjustElementCoordinates=(element)=>
 {
-    console.log(element)
     const {tool,x1,y1,x2,y2} = element;
     
     if(tool === 'rectangle') {

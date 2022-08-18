@@ -12,7 +12,7 @@ const Editor=()=>
     const [tool,setTool]=useState('pencil')
     const [action,setAction]=useState('none')
     const [selectedElement,setSelectedElement]=useState(null);
-
+    const [selectedPosition, setSelectedPosition]=useState(null);
     const updateElement=(index,x1,y1,x2,y2,tool)=>
     {
         switch (tool)
@@ -45,18 +45,20 @@ const Editor=()=>
     const onmousedown=(e)=>
     {
         const {clientX,clientY}=e;
-        const id = doc.getRoot().length;
+        const id = doc.getRoot().shapes.length;
         if(tool==='selection')
         {
-            const element=getElementAtPosition(clientX,clientY,doc.getRoot())
-  
+            const {element,position}=getElementAtPosition(clientX,clientY,doc.getRoot().shapes)
+            setSelectedPosition(position)
+            console.log(position)
             if(element)
             {
+                
                 const offsetX=clientX-element.x1;
                 const offsetY=clientY-element.y1;
                 setSelectedElement({...element,offsetX,offsetY})
                 
-                if(element.position==="inside")
+                if(position==="inside")
                 {
                     setAction('moving')
                 }
@@ -68,7 +70,7 @@ const Editor=()=>
         }
         else{
             setAction('drawing');
-            const element=createElement(id,clientX,clientY,clientX+10,clientY+10,tool)
+            const element=createElement(id,clientX,clientY,clientX,clientY,tool)
             doc.update((root)=>{
                 root.shapes.push(element);
              
@@ -100,21 +102,21 @@ const Editor=()=>
         }
         if(action==='moving')
         {
-            const elements=doc.getRoot().shapes;
             const {index,x1,x2,y1,y2,tool,offsetX,offsetY} = selectedElement
             const width=x2-x1;
             const height=y2-y1;
             const newX=clientX-offsetX
             const newY=clientY-offsetY
             updateElement(index,newX,newY,newX+width,newY+height,tool);
+            drawAll();
             
         }
         if(action==='resizing')
         {
-            const elements=doc.getRoot().shapes;
-            const {index,tool, position, ...coordinates} = selectedElement;
-            const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,position,coordinates);
+            const {index,tool, ...coordinates} = selectedElement;
+            const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,selectedPosition,coordinates);
             updateElement(index, x1,y1,x2,y2, tool);
+            drawAll();
         }
        
         
@@ -131,7 +133,7 @@ const Editor=()=>
         if( action ==='resizing')
         {
             const index = selectedElement.index           
-            const {x1,y1,x2,y2} = adjustElementCoordinates(doc.getRoot()[index]);
+            const {x1,y1,x2,y2} = adjustElementCoordinates(doc.getRoot().shapes[index]);
             updateElement(index, x1,y1,x2,y2,selectedElement.tool)
         }    
         setAction('selection');
@@ -141,9 +143,11 @@ const Editor=()=>
     //캔버스 생성//
     function drawAll()
     {
+        
         const root = doc.getRoot();
         context.clearRect(0,0,canvas.width,canvas.height);
         root.shapes.forEach(element => drawElement(roughCanvas, context, element));
+        console.log(root.shapes)
     }
     useLayoutEffect(()=>{
         canvas=document.getElementById('canvas');
@@ -154,14 +158,20 @@ const Editor=()=>
 
     async function activateClient()
     {
+
             client = new yorkie.Client(`https://api.fillkie.com`)
             await client.activate();   
-            doc = new yorkie.Document('doc12s342aaaas2');   
+            doc = new yorkie.Document('da321asaasa');   
             await client.attach(doc);
             subscribeDoc();   
             doc.update((root) => {
+                if(root.shapes)
+                {
+                    return
+                }
                 root.shapes=[]
                 });
+            drawAll()
             
     }
     function subscribeDoc()
