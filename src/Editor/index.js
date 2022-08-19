@@ -13,6 +13,7 @@ const Editor=()=>
     const [action,setAction]=useState('none')
     const [selectedElement,setSelectedElement]=useState(null);
     const [selectedPosition, setSelectedPosition]=useState(null);
+    const [loading, setLoading]= useState(0);
     const updateElement=(index,x1,y1,x2,y2,tool)=>
     {
         switch (tool)
@@ -149,19 +150,15 @@ const Editor=()=>
         root.shapes.forEach(element => drawElement(roughCanvas, context, element));
         console.log(root.shapes)
     }
-    useLayoutEffect(()=>{
-        canvas=document.getElementById('canvas');
-        context=canvas.getContext('2d');
-        roughCanvas=rough.canvas(canvas)        
-    },[])
+
     //Yorkie//
 
     async function activateClient()
     {
-
+            setLoading(1)
             client = new yorkie.Client(`https://api.fillkie.com`)
             await client.activate();   
-            doc = new yorkie.Document('da321asaasa');   
+            doc = new yorkie.Document('da32a1asaasa');   
             await client.attach(doc);
             subscribeDoc();   
             doc.update((root) => {
@@ -171,7 +168,9 @@ const Editor=()=>
                 }
                 root.shapes=[]
                 });
+            setLoading(0)
             drawAll()
+            
             
     }
     function subscribeDoc()
@@ -185,6 +184,9 @@ const Editor=()=>
         
     }
     useLayoutEffect(()=> {
+        canvas=document.getElementById('canvas');
+        context=canvas.getContext('2d');
+        roughCanvas=rough.canvas(canvas)  
         if(client===null)
         {
             activateClient();
@@ -194,18 +196,23 @@ const Editor=()=>
     ,[])
     return(
         <div>
+            {
             <canvas
+            style={{}}
             id="canvas"
             width={window.innerWidth}
             height={window.innerHeight-30}
             onMouseDown={onmousedown}
             onMouseMove={onmousemove}
             onMouseUp={onmouseup}>
-            </canvas>
+            </canvas>}
+            
             <button onClick={()=>{setTool('pencil')}}>그리기</button>
             <button onClick={()=>{setTool('line')}}>선</button>
             <button onClick={()=>{setTool('rectangle')}}>직사각형</button>
             <button onClick={()=>{setTool('selection')}}>선택</button>
+            <button>undo</button>
+            <button>redo</button>
         </div>
     )
 }
