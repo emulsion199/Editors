@@ -1,5 +1,6 @@
 import rough from 'roughjs/bundled/rough.esm'
 import getStroke from 'perfect-freehand'
+import { useState } from 'react';
 const generator= rough.generator();
 //pencil
 function getSvgPathFromStroke(stroke) {
@@ -15,11 +16,37 @@ function getSvgPathFromStroke(stroke) {
     d.push('Z')
     return d.join(' ')
   }
-export const createSelectedBox=(index,x1,y1,x2,y2,tool)=>
+const drawCircle=(x,y,context)=>
 {
-    const roughElement=generator.rectangle(x1,y1,x2-x1,y2-y1,{
-      })
-    return {index,x1,y1,x2,y2,tool,roughElement}
+    
+    context.beginPath();
+    context.arc(x, y, 4, 0, Math.PI * 2);
+    context.strokeStyle="rgb(0, 60, 255)"
+    context.fillStyle="white"
+    context.fill()
+    context.stroke();
+}
+export const drawSelectedBox=(element,context)=>
+{
+    if(!element) return;
+    const {tool,x1,y1,x2,y2}=element;
+    context.lineWidth = 1.2; // 선 굵기 10픽셀
+    context.strokeStyle="rgb(0, 60, 255)";
+    
+    context.strokeRect(x1,y1,x2-x1,y2-y1);
+    context.fillStyle="rgba(0,60,255,0.1)"
+    context.fillRect(x1,y1,x2-x1,y2-y1);
+    //draw circle//
+    drawCircle(x1,y1,context)
+    drawCircle(x2,y2,context)
+    if(tool==='rectangle')
+    {
+        drawCircle(x1,y2,context)
+        drawCircle(x2,y1,context)
+    }
+
+    
+    
 }
 export const createElement=(index,x1,y1,x2,y2,tool)=>
 {
@@ -35,7 +62,7 @@ export const createElement=(index,x1,y1,x2,y2,tool)=>
 
     }
 }
-export const drawElement=(roughCanvas, context, element)=>
+export const drawElement=(context, element)=>
 {
     const {x1,y1,x2,y2}=element;
     switch (element.tool)
@@ -48,17 +75,16 @@ export const drawElement=(roughCanvas, context, element)=>
             context.lineWidth = 2
             context.strokeStyle = "black"
             context.stroke();
-            
 
-  
             break;
         case 'rectangle':
             context.strokeStyle="black";
             context.strokeRect(x1,y1,x2-x1,y2-y1);
-            context.fillStyle="rgba(12,34,56,1)"
+            context.fillStyle="rgba(12,100,56,0.5)"
             context.fillRect(x1,y1,x2-x1,y2-y1);
             break;
         case 'pencil':
+            context.fillStyle="black"
             const stroke = getSvgPathFromStroke(getStroke(element.points,{size:8}))
             context.fill(new Path2D(stroke))
             break;
@@ -158,4 +184,9 @@ export const resizeCoordinates=(clientX,clientY,position,coordinates)=>
         default:
             return null;
     }
+}
+
+export const useHistory = (initialState)=>
+{
+    const [elements, setElements] = useState(initialState)
 }

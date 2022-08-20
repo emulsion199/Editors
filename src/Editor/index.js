@@ -1,12 +1,12 @@
 import {useEffect, useLayoutEffect,useState} from 'react'
 import rough from 'roughjs/bundled/rough.esm'
-import { drawElement,createSelectedBox,createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
+import {drawSelectedBox, drawElement,createSelectedBox,createElement,getElementAtPosition,adjustElementCoordinates,cursorForPosition,resizeCoordinates} from './util'
 import yorkie from 'yorkie-js-sdk'
 var client=null;
 var doc= null;
 var canvas= null;
 var context=null;
-var roughCanvas=null;
+
 const Editor=()=>
 {
     const [tool,setTool]=useState('pencil')
@@ -14,6 +14,7 @@ const Editor=()=>
     const [selectedElement,setSelectedElement]=useState(null);
     const [selectedPosition, setSelectedPosition]=useState(null);
     const [loading, setLoading]= useState(0);
+
     const updateElement=(index,x1,y1,x2,y2,tool)=>
     {
         switch (tool)
@@ -27,8 +28,6 @@ const Editor=()=>
                 root.shapes[index].y1=element.y1
                 root.shapes[index].x2=element.x2
                 root.shapes[index].y2=element.y2
-                root.shapes[index].roughElement=element.roughElement
-                
                 }
                 )
                 break;
@@ -47,14 +46,16 @@ const Editor=()=>
     {
         const {clientX,clientY}=e;
         const id = doc.getRoot().shapes.length;
+        drawAll()
         if(tool==='selection')
         {
-            const {element,position}=getElementAtPosition(clientX,clientY,doc.getRoot().shapes)
-            setSelectedPosition(position)
-            console.log(position)
-            if(element)
+            const getElement=getElementAtPosition(clientX,clientY,doc.getRoot().shapes)
+
+            if(getElement)
             {
-                
+                const {element,position}=getElement
+                setSelectedPosition(position)
+                drawSelectedBox(element,context)
                 const offsetX=clientX-element.x1;
                 const offsetY=clientY-element.y1;
                 setSelectedElement({...element,offsetX,offsetY})
@@ -68,6 +69,7 @@ const Editor=()=>
                     setAction("resizing")
                 }
             }
+    
         }
         else{
             setAction('drawing');
@@ -109,7 +111,9 @@ const Editor=()=>
             const newX=clientX-offsetX
             const newY=clientY-offsetY
             updateElement(index,newX,newY,newX+width,newY+height,tool);
+            
             drawAll();
+            drawSelectedBox({tool,x1:newX,y1:newY,x2:newX+width,y2:newY+height},context)
             
         }
         if(action==='resizing')
@@ -118,6 +122,7 @@ const Editor=()=>
             const {x1,y1,x2,y2} = resizeCoordinates(clientX,clientY,selectedPosition,coordinates);
             updateElement(index, x1,y1,x2,y2, tool);
             drawAll();
+            drawSelectedBox({tool,x1,y1,x2,y2},context)
         }
        
         
@@ -147,8 +152,8 @@ const Editor=()=>
         
         const root = doc.getRoot();
         context.clearRect(0,0,canvas.width,canvas.height);
-        root.shapes.forEach(element => drawElement(roughCanvas, context, element));
-        console.log(root.shapes)
+        root.shapes.forEach(element => drawElement(context, element));
+
     }
 
     //Yorkie//
@@ -159,7 +164,7 @@ const Editor=()=>
             setLoading(1)
             client = new yorkie.Client(`https://api.fillkie.com`)
             await client.activate();   
-            doc = new yorkie.Document('da32a1asaasssa');   
+            doc = new yorkie.Document('d2');   
             await client.attach(doc);
             subscribeDoc();   
             doc.update((root) => {
@@ -168,6 +173,8 @@ const Editor=()=>
                     return
                 }
                 root.shapes=[]
+                root.history=[]
+
                 });
             setLoading(0)
             drawAll()
@@ -188,7 +195,6 @@ const Editor=()=>
     useLayoutEffect(()=> {
         canvas=document.getElementById('canvas');
         context=canvas.getContext('2d');
-        roughCanvas=rough.canvas(canvas)  
         
         if(client===null)
         {
