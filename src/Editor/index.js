@@ -155,10 +155,11 @@ const Editor=()=>
 
     async function activateClient()
     {
+     
             setLoading(1)
             client = new yorkie.Client(`https://api.fillkie.com`)
             await client.activate();   
-            doc = new yorkie.Document('da32a1asaasa');   
+            doc = new yorkie.Document('da32a1asaasssa');   
             await client.attach(doc);
             subscribeDoc();   
             doc.update((root) => {
@@ -170,6 +171,7 @@ const Editor=()=>
                 });
             setLoading(0)
             drawAll()
+            
             
             
     }
@@ -187,18 +189,20 @@ const Editor=()=>
         canvas=document.getElementById('canvas');
         context=canvas.getContext('2d');
         roughCanvas=rough.canvas(canvas)  
+        
         if(client===null)
         {
-            activateClient();
-            
+            activateClient();   
         }
+       
     }
     ,[])
     return(
         <div>
+            {loading?<div>Loading</div>:null}
             {
             <canvas
-            style={{}}
+            style={{display:`${loading?'none':'block'}`}}
             id="canvas"
             width={window.innerWidth}
             height={window.innerHeight-30}
