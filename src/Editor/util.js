@@ -26,23 +26,43 @@ const drawCircle=(x,y,context)=>
     context.fill()
     context.stroke();
 }
-export const drawSelectedBox=(element,context)=>
+export const drawSelectedBox=(element,context,pencilRange)=>
 {
+    
+    //draw circle//
     if(!element) return;
     const {tool,x1,y1,x2,y2}=element;
-    context.lineWidth = 1.2; // 선 굵기 10픽셀
+    if(tool =='rectangle')
+    {  
+    context.lineWidth = 1; // 선 굵기 10픽셀
     context.strokeStyle="rgb(0, 60, 255)";
-    
     context.strokeRect(x1,y1,x2-x1,y2-y1);
     context.fillStyle="rgba(0,60,255,0.1)"
     context.fillRect(x1,y1,x2-x1,y2-y1);
-    //draw circle//
     drawCircle(x1,y1,context)
     drawCircle(x2,y2,context)
-    if(tool==='rectangle')
+    drawCircle(x1,y2,context)
+    drawCircle(x2,y1,context)
+    }
+    if(tool==='line')
     {
-        drawCircle(x1,y2,context)
-        drawCircle(x2,y1,context)
+        context.beginPath();
+        context.moveTo(x1,y1)
+        context.lineTo(x2,y2)
+        context.lineWidth = 1
+        context.strokeStyle = "rgb(0, 60, 255)"
+        context.stroke();
+        drawCircle(x1,y1,context)
+        drawCircle(x2,y2,context)
+    }
+    if(tool==='pencil')
+    {
+        
+        context.lineWidth = 1; // 선 굵기 10픽셀
+        context.strokeStyle="rgb(0, 60, 255)";
+        context.strokeRect(pencilRange.x1,pencilRange.y1,pencilRange.x2-pencilRange.x1,pencilRange.y2-pencilRange.y1);
+        context.fillStyle="rgba(0,60,255,0.1)"
+        context.fillRect(pencilRange.x1,pencilRange.y1,pencilRange.x2-pencilRange.x1,pencilRange.y2-pencilRange.y1);
     }
 
     
@@ -54,9 +74,9 @@ export const createElement=(index,x1,y1,x2,y2,tool)=>
     {
         case "line":
         case 'rectangle':
-        return {index,x1,y1,x2,y2,tool}
+        return {index,x1,y1,x2,y2,tool,removed:false}
         case 'pencil':
-            return {index, points: [{x:x1,y:y1}],tool}
+            return {index, points: [{x:x1,y:y1}],tool,moveXY:{x:4,y:0},removed:false}
         default:
             throw new Error(`Type not recognized: ${tool}`)
 
@@ -64,7 +84,8 @@ export const createElement=(index,x1,y1,x2,y2,tool)=>
 }
 export const drawElement=(context, element)=>
 {
-    const {x1,y1,x2,y2}=element;
+    const {x1,y1,x2,y2,removed}=element;
+    if(removed) return;
     switch (element.tool)
     {
         
@@ -75,17 +96,28 @@ export const drawElement=(context, element)=>
             context.lineWidth = 2
             context.strokeStyle = "black"
             context.stroke();
+            
 
             break;
         case 'rectangle':
+            
+            context.lineWidth = 2; // 선 굵기 10픽셀
             context.strokeStyle="black";
             context.strokeRect(x1,y1,x2-x1,y2-y1);
-            context.fillStyle="rgba(12,100,56,0.5)"
+            context.fillStyle="rgba(200,200,56,0.4)"
             context.fillRect(x1,y1,x2-x1,y2-y1);
             break;
         case 'pencil':
             context.fillStyle="black"
-            const stroke = getSvgPathFromStroke(getStroke(element.points,{size:8}))
+            var XY=[]
+            for(var i=0; i<element.points.length;i++)
+            {
+                const tempXY={}
+                tempXY.x=element.points[i].x+element.moveXY.x
+                tempXY.y=element.points[i].y+element.moveXY.y
+                XY.push(tempXY)
+            }
+            const stroke = getSvgPathFromStroke(getStroke(XY,{size:8}))
             context.fill(new Path2D(stroke))
             break;
         default:
@@ -100,7 +132,7 @@ const nearPoint = (x,y,x1,y1,name)=>
 } 
 export const positionWithinElement=(x,y,element)=>
 {
-    const {tool,x1,x2,y1,y2}=element;
+    const {tool,x1,x2,y1,y2,removed}=element;
     if(tool==='rectangle')
     {
         const topLeft = nearPoint(x,y,x1,y1,'tl')
@@ -108,8 +140,8 @@ export const positionWithinElement=(x,y,element)=>
         const bottomLeft = nearPoint(x,y,x1,y2,'bl')
         const bottomRight = nearPoint(x,y,x2,y2,'br')
         const inside = x>=x1 && x<=x2 && y>=y1 && y<=y2 ? "inside" : null;
-        return topLeft || topRight || bottomLeft || bottomRight || inside
-    }else{
+        return {position:topLeft || topRight || bottomLeft || bottomRight || inside}
+    }else if(tool==='line'){
         const a={x:x1,y:y1}
         const b={x:x2,y:y2}
         const c={x,y}
@@ -117,16 +149,50 @@ export const positionWithinElement=(x,y,element)=>
         const start = nearPoint(x,y,x1,y1,'start')
         const end = nearPoint(x,y,x2,y2,'end')
         const inside = Math.abs(offset) < 1 ? "inside" : null;
-        return start || end || inside
+        return {position:start || end || inside}
+    }else if(tool === 'pencil')
+    {
+        var maxX=0
+        var minX=100101010
+        var maxY=0
+        var minY=111010101
+        var flag=false
+        for(var i=0;i<element.points.length;i++)
+        {
+            var cur={x:element.points[i].x+element.moveXY.x,y:element.points[i].y+element.moveXY.y}
+            if(distance(cur,{x,y})<10)
+            {
+                flag=true
+            }
+            if(maxX<cur.x)
+            {
+                maxX=cur.x
+            }
+            if(minX>cur.x)
+            {
+                minX=cur.x
+            }
+            if(maxY<cur.y)
+            {
+                maxY=cur.y
+            }
+            if(minY>cur.y)
+            {
+                minY=cur.y
+            }
+        }
+        const inside = flag ? "inside" : null;
+        return {position:inside,pencilRange:{x1:minX,y1:minY,x2:maxX,y2:maxY}}
     }
 }
 export const getElementAtPosition=(x,y,elements)=>
 {
     for(var i=elements.length-1; i>=0;i--)
     {
-        const position=positionWithinElement(x,y,elements[i])
+        if(elements[i].removed==true) continue;
+        const {position,pencilRange,removed}=positionWithinElement(x,y,elements[i])
         if(position!==null){
-            return {element:elements[i],position:position}
+            return {element:elements[i],position,pencilRange}
         }
     }
     return undefined
