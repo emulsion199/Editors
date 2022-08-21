@@ -117,7 +117,7 @@ export const drawElement=(context, element)=>
                 tempXY.y=element.points[i].y+element.moveXY.y
                 XY.push(tempXY)
             }
-            const stroke = getSvgPathFromStroke(getStroke(XY,{size:8}))
+            const stroke = getSvgPathFromStroke(getStroke(XY,{size:4}))
             context.fill(new Path2D(stroke))
             break;
         default:

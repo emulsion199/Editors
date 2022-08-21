@@ -61,9 +61,12 @@ const Editor=()=>
         
     }
 
-    const onmousedown=(e)=>
+    const onmousedown=(e,type)=>
     {
-        const {clientX,clientY}=e;
+        const clientX=type=="des"?e.clientX:e.touches[0].clientX
+        const clientY=type=="des"?e.clientY:e.touches[0].clientY
+       
+        
         const id = doc.getRoot().shapes.length;
         drawAll()
         if(tool==='selection')
@@ -120,10 +123,12 @@ const Editor=()=>
             drawAll()
         }
     }
-    const onmousemove=(e)=>
+    const onmousemove=(e,type)=>
     {
         
-        const {clientX,clientY}=e;
+        const clientX=type=="des"?e.clientX:e.touches[0].clientX
+        const clientY=type=="des"?e.clientY:e.touches[0].clientY
+       
         if(tool === 'selection')
         {
             const elements=doc.getRoot().shapes;
@@ -194,7 +199,7 @@ const Editor=()=>
        
         
     }
-    const onmouseup=(e)=>
+    const onmouseup=(e,type)=>
     {
         
         if(action === 'drawing' && (tool==='rectangle' || tool === 'line')){
@@ -212,10 +217,7 @@ const Editor=()=>
         setAction('selection')
         setSelectedElement(null);
     }
-    useEffect(()=>
-    {
-        console.log(users)
-    },[users])
+
     //캔버스 생성//
     function drawAll()
     {
@@ -301,9 +303,13 @@ const Editor=()=>
             id="canvas"
             width={window.innerWidth}
             height={window.innerHeight-30}
-            onMouseDown={onmousedown}
-            onMouseMove={onmousemove}
-            onMouseUp={onmouseup}>
+            onMouseDown={(e)=>{onmousedown(e,'des')}}
+            onMouseMove={(e)=>{onmousemove(e,'des')}}
+            onMouseUp={(e)=>{onmouseup(e,'des')}}
+            onTouchStart={(e)=>{onmousedown(e,'mob')}}
+            onTouchMove={(e)=>{onmousemove(e,'mob')}}
+            onTouchEnd={(e)=>{onmouseup(e,'mob')}} >
+            
             </canvas>}
             <div style={{position:'absolute', right:'10px', top:'10px'}}>
                 <div>사용자</div>
@@ -317,7 +323,7 @@ const Editor=()=>
             <button onClick={()=>{setTool('rectangle')}}>직사각형</button>
             <button onClick={()=>{setTool('selection')}}>선택</button>
             <button onClick={()=>{setTool('eraser')}}>지우개</button>
-            <button onClick={()=>{doc.update((root)=>root.shapes=[])}}>초기화</button>
+            <button onClick={()=>{doc.update((root)=>root.shapes=[]);drawAll()}}>초기화</button>
         </div>
     )
 }
